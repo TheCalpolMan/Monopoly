@@ -22,10 +22,12 @@ class Diceroller:
         self.slowrounds = []
         self.state = []
         self.results = []
+        self.trueresults = []
         for zza in range(0, self.number):
             self.slowrounds.append(False)
             self.state.append(False)
             self.results.append(0)
+            self.trueresults.append(0)
         self.frames = glob.glob(relative + "assets\\board\\dice\\frames\\*.png")
         for zza in range(0, len(self.frames)):
             self.frames[zza] = pygame.image.load(self.frames[zza]).convert_alpha()
@@ -38,12 +40,12 @@ class Diceroller:
     def update(self):
         for zza in range(0, self.number):
             if not self.state[zza]:
-                if x:
+                if self.x:
                     window.blit(self.frames[self.counter], [self.x + self.distance * zza, self.y])
                 else:
                     window.blit(self.frames[self.counter], self.blitpos[zza])
             else:
-                if x:
+                if self.x:
                     window.blit(self.stopframes[self.results[zza] - 1][(self.counter // 21) % 2], [self.x + self.distance * zza, self.y])
                 else:
                     window.blit(self.stopframes[self.results[zza] - 1][(self.counter // 21) % 2], self.blitpos[zza])
@@ -61,13 +63,26 @@ class Diceroller:
                 self.state[zza] = False
                 self.results[zza] = 0
 
+    def show(self):
+        for zza in range(0, self.number):
+            if not self.state[zza]:
+                if self.x:
+                    window.blit(self.frames[self.counter], [self.x + self.distance * zza, self.y])
+                else:
+                    window.blit(self.frames[self.counter], self.blitpos[zza])
+            else:
+                if self.x:
+                    window.blit(self.stopframes[self.results[zza] - 1][(self.counter // 21) % 2], [self.x + self.distance * zza, self.y])
+                else:
+                    window.blit(self.stopframes[self.results[zza] - 1][(self.counter // 21) % 2], self.blitpos[zza])
+
     def roll(self, statepos="all"):
         if statepos == "all":
             for zza in range(0, len(self.results)):
-                self.results[zza] = randint(1, 6)
+                self.results[zza] = self.trueresults[zza] = randint(1, 6)
                 self.slowrounds[zza] = randint(0, 2)
         else:
-            self.results[statepos] = randint(1, 6)
+            self.results[statepos] = self.trueresults[statepos] = randint(1, 6)
             self.slowrounds[statepos] = randint(0, 3)
         self.rolled = True
 
@@ -75,8 +90,10 @@ class Diceroller:
         if statepos == "all":
             for zza in range(0, len(self.results)):
                 self.slowrounds[zza] = False
+                self.trueresults[zza] = 0
         else:
             self.slowrounds[statepos] = False
+            self.trueresults[statepos] = 0
         self.rolled = False
 
 
@@ -1062,6 +1079,7 @@ gameinfo = ""
 counter = 0
 moved = False
 destination = -1
+esc = False
 cardviewcurrent = 0
 buildsetcurrent = 0
 dicerollers = Diceroller((616, 264), 2, 120)
@@ -1099,16 +1117,17 @@ while running:
             if counter == 60:
                 counter = 0
                 if destination == -1 and not gameinfo.players[gameinfo.playerturn].jail:
-                    destination = (gameinfo.players[gameinfo.playerturn].place + dicerollers.results[0] + dicerollers.results[1]) % 40
-                elif destination == -1 and gameinfo.players[gameinfo.playerturn].jail and dicerollers.results[0] == dicerollers.results[1]:
+                    destination = (gameinfo.players[gameinfo.playerturn].place + dicerollers.trueresults[0] + dicerollers.trueresults[1]) % 40
+                elif destination == -1 and gameinfo.players[gameinfo.playerturn].jail and dicerollers.trueresults[0] == dicerollers.trueresults[1]:
                     gameinfo.players[gameinfo.playerturn].jail = False
-                    destination = (10 + dicerollers.results[0] + dicerollers.results[1]) % 40
-                elif destination == -1 and gameinfo.players[gameinfo.playerturn].jail and dicerollers.results[0] != dicerollers.results[1]:
+                    destination = (10 + dicerollers.trueresults[0] + dicerollers.trueresults[1]) % 40
+                elif destination == -1 and gameinfo.players[gameinfo.playerturn].jail and dicerollers.trueresults[0] != dicerollers.trueresults[1]:
                     gameinfo.players[gameinfo.playerturn].jail -= 1
                     if gameinfo.players[gameinfo.playerturn].jail == 0:
                         gameinfo.players[gameinfo.playerturn].jail = False
 
-        if counter % 20 == 0 and destination != -1 and gameinfo.players[gameinfo.playerturn].place != destination and not moved:
+        if counter % 20 == 0 and destination != -1 and gameinfo.players[gameinfo.playerturn].place < destination and not moved:
+            print(destination)
             gameinfo.players[gameinfo.playerturn].place = (gameinfo.players[gameinfo.playerturn].place + 1) % 40
             gameinfo.updateplayerpos()
 
@@ -1116,7 +1135,7 @@ while running:
             counter = 0
             destination = -1
             moved = True
-            if dicerollers.results[0] == dicerollers.results[1] and doubles < 3:
+            if dicerollers.trueresults[0] == dicerollers.trueresults[1] and doubles < 3:
                 doubles += 1
                 if doubles == 3:
                     gameinfo.players[gameinfo.playerturn].place = 40
@@ -1128,8 +1147,8 @@ while running:
 
         # end
 
-        if cardselect + 1 * (cardselect // 10 + 1) in gameinfo.mortgaged:
-            window.blit(getfromname(overlays, "mortgaged")[1], (144, 340))  # that maths in the end is for the correction of the deck variable, as it doesn't contain corners
+        if cardselect + 1 * (cardselect // 10 + 1) in gameinfo.mortgaged:  # that maths in the end is for the correction of the deck variable, as it doesn't contain corners
+            window.blit(getfromname(overlays, "mortgaged")[1], (144, 340))
 
         gameinfo.displayplayers()
         gameinfo.displayhouses()
@@ -1301,6 +1320,11 @@ while running:
             if getobject(i.txtboxes, "txtbox2").txt != temptext2:
                 getobject(i.txtboxes, "txtbox1").puttext(temptext)
                 getobject(i.txtboxes, "txtbox2").puttext(temptext2)
+        elif i.name == "pause" and esc:
+            if i.active:
+                i.hide()
+            else:
+                i.show()
 
         if i.name == "overlay" and i.active:
             for x in i.buttons:
@@ -1317,16 +1341,18 @@ while running:
                 elif x.name == "button5" and x.pressed and not dicerollers.rolled:
                     dicerollers.roll()
                     x.pressed = False
-                elif x.name == "button6" and x.pressed and moved:
+                elif x.name == "button6" and x.pressed:
                     x.pressed = False
-                    gameinfo.playerturn = (gameinfo.playerturn + 1) % len(gameinfo.players)
-                    moved = False
-                    destination = -1
-                    dicerollers.reset()
-                    if gameinfo.players[gameinfo.playerturn].name[-1] == "s":
-                        getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'")
-                    else:
-                        getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'s")
+                    if moved:
+                        doubles = 0
+                        gameinfo.playerturn = (gameinfo.playerturn + 1) % len(gameinfo.players)
+                        moved = False
+                        destination = -1
+                        dicerollers.reset()
+                        if gameinfo.players[gameinfo.playerturn].name[-1] == "s":
+                            getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'")
+                        else:
+                            getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'s")
 
             if getobject(i.txtboxes, "txtbox2").txt != "$" + str(gameinfo.players[gameinfo.playerturn].money):
                 getobject(i.txtboxes, "txtbox2").puttext("$" + str(gameinfo.players[gameinfo.playerturn].money))
@@ -1339,6 +1365,8 @@ while running:
 
     if not menuactive:
         dicerollers.update()
+    else:
+        dicerollers.show()
 
     for i in menus:
         i.update(events=eventlist, mousestate=mousedown)
@@ -1356,11 +1384,14 @@ while running:
             pygame.event.clear()
             pygame.event.post(pygame.event.Event(pygame.QUIT))
 
+    esc = False
     for event in eventlist:
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_F2:
+            if event.key == pygame.K_F2 or event.key == pygame.K_m:
                 toImage(window).save("screenshot.png")
+            elif event.key == pygame.K_ESCAPE:
+                esc = True
         # elif event.type == pygame.mixer.music.get_endevent():
         #     pygame.mixer.music.play()
