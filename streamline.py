@@ -1317,6 +1317,16 @@ while running:
                 elif x.name == "button5" and x.pressed and not dicerollers.rolled:
                     dicerollers.roll()
                     x.pressed = False
+                elif x.name == "button6" and x.pressed and moved:
+                    x.pressed = False
+                    gameinfo.playerturn = (gameinfo.playerturn + 1) % len(gameinfo.players)
+                    moved = False
+                    destination = -1
+                    dicerollers.reset()
+                    if gameinfo.players[gameinfo.playerturn].name[-1] == "s":
+                        getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'")
+                    else:
+                        getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'s")
 
             if getobject(i.txtboxes, "txtbox2").txt != "$" + str(gameinfo.players[gameinfo.playerturn].money):
                 getobject(i.txtboxes, "txtbox2").puttext("$" + str(gameinfo.players[gameinfo.playerturn].money))
