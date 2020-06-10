@@ -1026,8 +1026,6 @@ if executable:
 
 relative = relative[0:cut]
 
-relative = "G:\\Code\\Python Stuff\\Games\\Monopoly\\actual game\\"
-
 # ------------------------------------------------------------------------------------------------------------
 
 pygame.init()
