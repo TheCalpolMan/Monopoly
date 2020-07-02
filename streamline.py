@@ -1044,7 +1044,7 @@ for i in range(0, len(menus)):
     menus[i] = Menu(menus[i][len(relative) + 13:])
     if menus[i].name == "mainmenu":
         menus[i].show()
-        menuactive = True
+        menuactive = [menus[i].name]
 
 skip = 0
 for i in range(0, len(menus)):
@@ -1090,7 +1090,7 @@ while running:
     # if clock.get_fps() < 55 and clock.get_fps() != 0.0:
     #     print(clock.get_fps())
 
-    if 403 < pos[0] < 998 and 2 < pos[1] < 595 and not menuactive:
+    if 403 < pos[0] < 998 and 2 < pos[1] < 595 and len(menuactive) == 0:
         # if in boardspace and there's no menu up
         if not (471 < pos[0] < 930 and 69 < pos[1] < 528):
             # if not in middle boardspace
@@ -1125,7 +1125,6 @@ while running:
                         gameinfo.players[gameinfo.playerturn].jail = False
 
         if counter % 20 == 0 and destination != -1 and gameinfo.players[gameinfo.playerturn].place < destination and not moved:
-            print(destination)
             gameinfo.players[gameinfo.playerturn].place = (gameinfo.players[gameinfo.playerturn].place + 1) % 40
             gameinfo.updateplayerpos()
 
@@ -1158,30 +1157,33 @@ while running:
 
     # sorting out all the menus
 
-    menuactive = False
+    menuactive = []
     for i in menus:
-        if i.name == "mainmenu" and getobject(i.buttons, "button2").pressed:
-            i.hide()
-            getobject(menus, "newgame").show()
-            menuactive = True
-            getobject(i.buttons, "button2").pressed = False
+        if i.name == "mainmenu" and i.active:
+            for x in i.buttons:
+                if x.name == "button2" and x.pressed:
+                    i.hide()
+                    getobject(menus, "newgame").show()
+                    menuactive.append("newgame")
+                    x.pressed = False
         elif i.name == "newgame":
-            if getobject(i.buttons, "button1").pressed:
-                i.hide()
-                getobject(menus, "mainmenu").show()
-                menuactive = True
-                getobject(i.buttons, "button1").pressed = False
-            elif getobject(i.buttons, "button2").pressed:
-                i.hide()
-                getobject(i.buttons, "button2").pressed = False
-                try:
-                    playernumber = int(getobject(i.txtboxes, "txtbox1").txt.strip("|"))
-                except ValueError:
-                    playernumber = 4
-                playertotal = playernumber
-                gamename = getobject(i.txtboxes, "txtbox2").txt.strip("|")
-                bidrule = getobject(i.tickboxes, "tickbox1").checked
-                parkrule = getobject(i.tickboxes, "tickbox2").checked
+            for x in i.buttons:
+                if x.pressed and x.name == "button1":
+                    i.hide()
+                    getobject(menus, "mainmenu").show()
+                    menuactive.append("mainmenu")
+                    x.pressed = False
+                elif x.pressed and x.name == "button2":
+                    i.hide()
+                    x.pressed = False
+                    try:
+                        playernumber = int(getobject(i.txtboxes, "txtbox1").txt.strip("|"))
+                    except ValueError:
+                        playernumber = 4
+                    playertotal = playernumber
+                    gamename = getobject(i.txtboxes, "txtbox2").txt.strip("|")
+                    bidrule = getobject(i.tickboxes, "tickbox1").checked
+                    parkrule = getobject(i.tickboxes, "tickbox2").checked
         elif i.name == "playersettings":
             if i.active:
                 for x in i.buttons:
@@ -1220,7 +1222,7 @@ while running:
                 i.reset()
                 i.txtboxes[0].puttext(str(playertotal - playernumber))
                 i.show()
-                menuactive = True
+                menuactive.append(i.name)
         elif i.name == "cardview" and i.active:
             for x in i.buttons:
                 if x.name == "button2" and x.pressed:
@@ -1336,8 +1338,9 @@ while running:
                     buildsetcurrent = 0
                     getobject(menus, "build").show()
                     x.pressed = False
-                elif x.name == "button5" and x.pressed and not dicerollers.rolled:
-                    dicerollers.roll()
+                elif x.name == "button5" and x.pressed:
+                    if not dicerollers.rolled:
+                        dicerollers.roll()
                     x.pressed = False
                 elif x.name == "button6" and x.pressed:
                     x.pressed = False
@@ -1355,13 +1358,13 @@ while running:
             if getobject(i.txtboxes, "txtbox2").txt != "$" + str(gameinfo.players[gameinfo.playerturn].money):
                 getobject(i.txtboxes, "txtbox2").puttext("$" + str(gameinfo.players[gameinfo.playerturn].money))
 
-        if i.active and i.name != "overlay":
-            menuactive = True
+        if i.active and i.name != "overlay" and i.name not in menuactive:
+            menuactive.append(i.name)
 
-    if not menuactive and not getobject(menus, "overlay").active:
+    if len(menuactive) == 0 and not getobject(menus, "overlay").active:
         getobject(menus, "overlay").show()
 
-    if not menuactive:
+    if len(menuactive) == 0:
         dicerollers.update()
     else:
         dicerollers.show()
