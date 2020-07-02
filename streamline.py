@@ -1030,6 +1030,7 @@ def listcompare(list1,list2,allorany="all"):
                 return True
         return False
 
+
 # ------------------------------------------------------------------------------------------------------------
 
 filepath = __file__
