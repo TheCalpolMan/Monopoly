@@ -635,6 +635,24 @@ class Menu:
             if toshow != blankimage:
                 toshow.show(self.winpos)
 
+    def shownoaction(self, position=("a", "b")):
+        if self.active:
+            if position != ("a", "b"):
+                self.winpos = position
+
+            window.blit(self.base, self.winpos)
+
+            for z in self.toblit:
+                window.blit(z[0], z[1])
+            self.toblit = []
+
+            for z in range(0, len(self.info)):
+                if self.info[z] in self.txtboxes:
+                    self.info[z].drawtxt(self.winpos)
+
+                elif self.info[z] in self.tickboxes:
+                    self.info[z].draw(self.winpos)
+
     def hide(self):
         self.active = False
         self.selected = -1
@@ -1000,6 +1018,18 @@ def everyitem(listtosearch, item):
     return True
 
 
+def listcompare(list1,list2,allorany="all"):
+    if allorany.lower() == "all":
+        for item in list1:
+            if item not in list2:
+                return False
+        return True
+    else:
+        for item in list1:
+            if item in list2:
+                return True
+        return False
+
 # ------------------------------------------------------------------------------------------------------------
 
 filepath = __file__
@@ -1052,6 +1082,12 @@ for i in range(0, len(menus)):
         menus.append(menus.pop(skip))
     else:
         skip = 1
+
+for i in range(0, len(menus)):
+    if menus[i].name == "pause":
+        menus.append(menus.pop(i))
+        break
+
 
 running = True
 setinfo = Setinfo()
@@ -1110,7 +1146,7 @@ while running:
 
         # diceroller logic
 
-        if everyitem(dicerollers.state, "stop"):
+        if everyitem(dicerollers.state, "stop") and "pause" not in menuactive:
             counter += 1
             if counter == 60:
                 counter = 0
@@ -1320,7 +1356,7 @@ while running:
             if getobject(i.txtboxes, "txtbox2").txt != temptext2:
                 getobject(i.txtboxes, "txtbox1").puttext(temptext)
                 getobject(i.txtboxes, "txtbox2").puttext(temptext2)
-        elif i.name == "pause" and esc:
+        elif i.name == "pause" and esc and not listcompare(["mainmenu", "playersettings", "newgame", "loadgame"], menuactive, "all"):
             if i.active:
                 i.hide()
             else:
@@ -1361,7 +1397,7 @@ while running:
         if i.active and i.name != "overlay" and i.name not in menuactive:
             menuactive.append(i.name)
 
-    if len(menuactive) == 0 and not getobject(menus, "overlay").active:
+    if (len(menuactive) == 0 or len(menuactive) == 1 and menuactive[0] == "pause") and not getobject(menus, "overlay").active:
         getobject(menus, "overlay").show()
 
     if len(menuactive) == 0:
@@ -1369,8 +1405,13 @@ while running:
     else:
         dicerollers.show()
 
-    for i in menus:
-        i.update(events=eventlist, mousestate=mousedown)
+    if "pause" in menuactive:
+        for i in menus[0:-1]:
+            i.shownoaction()
+        menus[-1].update(events=eventlist, mousestate=mousedown)
+    else:
+        for i in menus:
+            i.update(events=eventlist, mousestate=mousedown)
 
     # aight we're done with that
 
