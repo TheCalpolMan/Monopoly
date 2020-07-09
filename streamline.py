@@ -5,6 +5,71 @@ import sys
 from random import randint
 
 
+class Popup:
+    def __init__(self, text, colour="990000", alpha=255):
+        if len(colour) != 4:
+            if len(colour) == 7:
+                self.colour = hextorgb(colour[1:])
+            else:
+                self.colour = hextorgb(colour)
+            self.colour = [self.colour[0], self.colour[1], self.colour[2], alpha]
+        else:
+            self.colour = colour
+
+        self.text = text
+
+        self.img = Image.new("RGBA", (1000, 50), (0, 0, 0, 0))
+
+        xpos = 0
+        for symbol in self.text:
+            if symbol == ".":
+                character = Image.open(relative + "assets\\fonts\\message\\punkt.png")
+            elif symbol == "|":
+                character = Image.open(relative + "assets\\fonts\\message\\line.png")
+            elif symbol == "$":
+                character = Image.open(relative + "assets\\fonts\\message\\mm.png")
+            elif symbol == " ":
+                character = Image.open(relative + "assets\\fonts\\message\\a.png")
+            elif symbol == "'":
+                character = Image.open(relative + "assets\\fonts\\message\\apostraphe.png")
+            else:
+                character = Image.open(relative + "assets\\fonts\\message\\" + symbol + ".png")
+            if symbol != " ":
+                self.img.paste(character, (xpos, 0, xpos + character.size[0], character.size[1]), character)
+            xpos += character.size[0] + 3
+        self.img = self.img.crop(self.img.getbbox())
+        self.img = topygame(self.img)
+        colourmask = pygame.Surface(self.img.get_size())
+        colourmask.fill(self.colour)
+        self.img.blit(colourmask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        self.img = self.img.convert_alpha()
+
+
+class Popupcontainer:
+    def __init__(self, spacing):
+        self.popups = []
+        self.fcounters = []
+        self.spacing = spacing
+
+    def newpopup(self, text, colour="990000", alpha=255, frames=180):
+        self.popups.append(Popup(text, colour, alpha))
+        self.fcounters.append(frames)
+
+    def update(self):
+        tocut = []
+        space = self.spacing
+        for popupindex in range(0, len(self.popups)):
+            window.blit(self.popups[popupindex].img, (500 - self.popups[popupindex].img.get_size()[0] // 2, space))
+            space += self.popups[popupindex].img.get_size()[1] + self.spacing
+            self.fcounters[popupindex] -= 1
+            if self.fcounters[popupindex] < 1:
+                tocut.append(popupindex)
+        tocut.sort(reverse=True)
+        for cutting in tocut:
+            self.fcounters.pop(cutting)
+            self.popups.pop(cutting)
+            
+
 class Diceroller:
     def __init__(self, blitpos, number, distance):
         self.stoppoints = [1, 8, 15, 23, 30, 37]
@@ -212,6 +277,7 @@ class Player:
         colourmask = pygame.Surface(self.img.get_size())
         colourmask.fill(self.colour)
         self.img.blit(colourmask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        self.img = self.img.convert_alpha()
         self.coords = (0, 0)
 
 
@@ -1110,6 +1176,7 @@ cardselect = 0
 playernumber = 0
 doubles = 0
 playerlist = []
+allpopups = Popupcontainer(5)
 gameinfo = ""
 counter = 0
 moved = False
@@ -1378,6 +1445,8 @@ while running:
                 elif x.name == "button5" and x.pressed:
                     if not dicerollers.rolled:
                         dicerollers.roll()
+                    else:
+                        allpopups.newpopup("you can't press that right now")
                     x.pressed = False
                 elif x.name == "button6" and x.pressed:
                     x.pressed = False
@@ -1415,6 +1484,8 @@ while running:
             i.update(events=eventlist, mousestate=mousedown)
 
     # aight we're done with that
+
+    allpopups.update()
 
     pygame.display.update()
     clock.tick(60)
