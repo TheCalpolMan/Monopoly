@@ -18,11 +18,18 @@ class Popup:
 
         self.text = text
 
-        self.img = Image.new("RGBA", (1000, 50), (0, 0, 0, 0))
+        self.img = Image.new("RGBA", (1000, 300), (0, 0, 0, 0))
 
         xpos = 0
+        layer = 0
+        layers = [Image.new("RGBA", (1000, 50), (0, 0, 0, 0))]
         for symbol in self.text:
-            if symbol == ".":
+            if symbol == "\n":
+                layer += 1
+                layers.append(Image.new("RGBA", (1000, 100), (0, 0, 0, 0)))
+                xpos = 0
+                continue
+            elif symbol == ".":
                 character = Image.open(relative + "assets\\fonts\\message\\punkt.png")
             elif symbol == "|":
                 character = Image.open(relative + "assets\\fonts\\message\\line.png")
@@ -35,14 +42,23 @@ class Popup:
             else:
                 character = Image.open(relative + "assets\\fonts\\message\\" + symbol + ".png")
             if symbol != " ":
-                self.img.paste(character, (xpos, 0, xpos + character.size[0], character.size[1]), character)
+                layers[layer].paste(character, (xpos, 0, xpos + character.size[0], character.size[1]), character)
             xpos += character.size[0] + 3
+
+        for skin in range(0, len(layers)):
+            layers[skin] = layers[skin].crop(layers[skin].getbbox())
+            self.img.paste(layers[skin], (self.img.size[0] // 2 - layers[skin].size[0] // 2, skin * (layers[skin].size[1] + 5)))
+
         self.img = self.img.crop(self.img.getbbox())
         self.img = topygame(self.img)
         colourmask = pygame.Surface(self.img.get_size())
         colourmask.fill(self.colour)
         self.img.blit(colourmask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        self.img = self.img.convert_alpha()
+        self.img = toImage(self.img)
+        backplate = Image.new("RGBA", (self.img.size[0] + 10, self.img.size[1] + 10), (117, 117, 117, 255))
+        backplate.paste(Image.new("RGBA", (self.img.size[0] + 6, self.img.size[1] + 6), (194, 194, 194, 255)), (2, 2))
+        backplate.paste(self.img, (5, 5), self.img)
+        self.img = topygame(backplate)
 
 
 class Popupcontainer:
@@ -739,8 +755,214 @@ class Menu:
 # ------------------------------------------------------------------------------------------------------------
 
 
+class Module:
+    def __init__(self, name, menuname):
+        self.name = name
+        self.base = pygame.image.load(relative + "assets\\menus\\" + menuname + "\\" + name + "base.png").convert_alpha()
+        self.info = readmenu("name" + "info.txt", self.name)
+        self.buttons = []
+        self.txtboxes = []
+        self.tickboxes = []
+        for z in range(0, len(self.info)):
+            if "button" in self.info[z].name:
+                self.buttons.append(self.info[z])
+            elif "txtbox" in self.info[z].name:
+                self.txtboxes.append(self.info[z])
+            elif "tickbox" in self.info[z].name:
+                self.tickboxes.append(self.info[z])
+        self.dims = toImage(self.base).size
+
+
+class ModularMenu:
+    def __init__(self, name):
+        self.stitched = False
+        self.base = None
+        self.active = False
+        self.selected = -1
+        self.counter = 0
+        self.name = name
+        topop = []
+
+        self.modules = glob.glob(relative + "assets\\modular menus\\" + self.name + "\\*.txt")
+        for z in range(0, len(self.modules)):
+            if "pos.txt" not in self.modules[z]:
+                self.modules[z] = Module(self.modules[z][len(self.name) + 21:-4], self.name)
+            else:
+                topop.append(z)
+
+        topop.sort(reverse=True)
+        for z in topop:
+            self.modules.pop(z)
+
+        try:
+            self.winpos = nospaces(open(relative + "assets\\modular menus\\" + self.name + "\\pos.txt").readlines()[0]).split(",")
+        except FileNotFoundError:
+            self.winpos = ["0", "0"]
+        for z in range(0, len(self.winpos)):
+            self.winpos[z] = int(self.winpos[z])
+        self.x1 = self.winpos[0]
+        self.y1 = self.winpos[1]
+        self.x2 = None
+        self.y2 = None
+        self.dims = None
+        self.info = []
+        self.buttons = []
+        self.txtboxes = []
+        self.tickboxes = []
+        self.toblit = []
+
+    def stitch(self, modulestouse, modulepositions):
+        self.stitched = True
+
+        # little reset
+        self.base = Image.new("RBGA", (1000, 598))
+        self.info = []
+        self.buttons = []
+        self.txtboxes = []
+        self.tickboxes = []
+
+        # actual work
+        for z in range(0, len(modulestouse)):
+            tempmodule = getobject(self.modules, modulestouse[z])
+            for zax in tempmodule.info:
+                self.info.append(zax)
+            self.base.paste(tempmodule.base, modulepositions[z], tempmodule.base)
+
+        for z in range(0, len(self.info)):
+            if "button" in self.info[z].name:
+                self.buttons.append(self.info[z])
+            elif "txtbox" in self.info[z].name:
+                self.txtboxes.append(self.info[z])
+            elif "tickbox" in self.info[z].name:
+                self.tickboxes.append(self.info[z])
+        self.x2 = self.x1 + toImage(self.base).size[0]
+        self.y2 = self.y1 + toImage(self.base).size[1]
+        self.dims = toImage(self.base).size
+
+    def show(self, position=("a", "b")):
+        if position != ("a" ,"b"):
+            self.winpos = position
+        self.active = True
+
+    def update(self, position=("a", "b"), events=(), mousestate=(0, 0, 0)):
+        if self.active and self.stitched:
+            if position != ("a", "b"):
+                self.winpos = position
+
+            hidewin = False
+            toshow = blankimage
+            mousepos = pygame.mouse.get_pos()
+
+            window.blit(self.base, self.winpos)
+
+            for z in self.toblit:
+                window.blit(z[0], z[1])
+            self.toblit = []
+
+            for z in range(0, len(self.info)):
+                if self.info[z] in self.buttons and self.info[z].iscolliding(mousepos, self.winpos):
+                    toshow = self.info[z]
+                    if mousestate[0]:
+                        self.info[z].pressed = True
+                        if self.info[z].name == "button1":
+                            hidewin = True
+
+                elif self.info[z] in self.txtboxes:
+                    if self.info[z].editable:
+                        if self.info[z].iscolliding(mousepos, self.winpos) and mousestate[0] and not self.info[z].selected:
+                            self.selected = z
+                            self.info[z].selected = True
+                            self.counter = 20
+                            self.info[z].blink()
+                        elif not self.info[z].iscolliding(mousepos, self.winpos) and mousestate[0] and self.info[z].selected:
+                            self.selected = -1
+                            self.info[z].selected = False
+                            self.counter = 0
+                            self.info[z].txt = self.info[z].txt.strip("|")
+                            self.info[z].puttext()
+                            self.info[z].drawtxt(self.winpos)
+
+                        if self.info[z].selected and self.counter < 1:
+                            self.counter = 20
+                            self.info[z].blink()
+
+                    self.info[z].drawtxt(self.winpos)
+
+                elif self.info[z] in self.tickboxes:
+                    if self.info[z].iscolliding(mousepos, self.winpos):
+                        self.info[z].selected = True
+                        if mousestate[0]:
+                            self.info[z].toggle()
+                    else:
+                        self.info[z].selected = False
+
+                    self.info[z].draw(self.winpos)
+
+            if self.counter > 0:
+                self.counter -= 1
+
+            if hidewin:
+                self.hide()
+
+            if self.selected != -1:
+                for item in events:
+                    if item.type == pygame.KEYDOWN:
+                        if item.unicode in self.info[self.selected].allowed:
+                            self.info[self.selected].txt = self.info[self.selected].txt.strip("|") + item.unicode
+                            self.info[self.selected].checklen()
+                            self.info[self.selected].puttext()
+                            self.info[self.selected].blink()
+                            self.counter = 30
+                        elif item.key == 8:
+                            self.info[self.selected].txt = self.info[self.selected].txt.strip("|")[0:-1]
+                            self.info[self.selected].puttext()
+                            self.info[self.selected].blink()
+                            self.counter = 30
+
+            if toshow != blankimage:
+                toshow.show(self.winpos)
+
+    def shownoaction(self, position=("a", "b")):
+        if self.active:
+            if position != ("a", "b"):
+                self.winpos = position
+
+            window.blit(self.base, self.winpos)
+
+            for z in self.toblit:
+                window.blit(z[0], z[1])
+            self.toblit = []
+
+            for z in range(0, len(self.info)):
+                if self.info[z] in self.txtboxes:
+                    self.info[z].drawtxt(self.winpos)
+
+                elif self.info[z] in self.tickboxes:
+                    self.info[z].draw(self.winpos)
+
+    def hide(self):
+        self.active = False
+        self.selected = -1
+        if self.buttons[0].pressed:
+            global donepressed
+            donepressed = self.name
+
+    def reset(self):
+        for za in self.txtboxes:
+            za.txt = ""
+            za.puttext()
+        for za in self.buttons:
+            za.pressed = False
+        for za in self.tickboxes:
+            za.checked = False
+
+
+# ------------------------------------------------------------------------------------------------------------
+
+
 class Button:
     def __init__(self, dims, name, menuname):
+        self.module = None
         self.name = name
         self.image = pygame.image.load(relative + "assets\\menus\\" + menuname + "\\" + name + ".png").convert_alpha()
         self.pressed = False
@@ -766,6 +988,7 @@ class Button:
 
 class Txtbox:
     def __init__(self, dims, name):
+        self.module = None
         self.name = name
         self.txt = ""
         self.selected = False
@@ -863,6 +1086,7 @@ class Txtbox:
 
 class Tickbox:
     def __init__(self, dims, name, menuname):
+        self.module = None
         self.name = name
         self.checked = False
         self.selected = False
@@ -948,17 +1172,23 @@ def getname(string):
     return string[0:point]
 
 
-def readmenu(txtfile, menuname):
+def readmenu(txtfile, menuname, module=False):
     if ".txt" in txtfile:
-        txtfile = open(relative + "assets\\menus\\" + menuname + "\\" + txtfile)
+        if module:
+            txtfile = open(relative + "assets\\modular menus\\" + menuname + "\\" + txtfile)
+        else:
+            txtfile = open(relative + "assets\\menus\\" + menuname + "\\" + txtfile)
     else:
-        txtfile = open(relative + "assets\\menus\\" + menuname + "\\" + txtfile + ".txt")
+        if module:
+            txtfile = open(relative + "assets\\modular menus\\" + menuname + "\\" + txtfile + ".txt")
+        else:
+            txtfile = open(relative + "assets\\menus\\" + menuname + "\\" + txtfile + ".txt")
     txtfile = txtfile.readlines()
     data = []
     for ac in range(0, len(txtfile)):
         line = nospaces(txtfile[ac])
         if txtfile[ac][0] == "#":
-            pass
+            continue
         if txtfile[ac][0:6] == "txtbox":
             content = getcontent(line)
             content = content.split(",")
@@ -978,13 +1208,18 @@ def readmenu(txtfile, menuname):
                 content[ad] = int(content[ad])
             data.append([getname(line), content])
 
+    if module:
+        prefix = menuname
+    else:
+        prefix = ""
+
     for ae in range(0, len(data)):
         if "txtbox" in data[ae][0]:
-            data[ae] = Txtbox(data[ae][1], data[ae][0])
+            data[ae] = Txtbox(data[ae][1], prefix + data[ae][0])
         elif "button" in data[ae][0]:
-            data[ae] = Button(data[ae][1], data[ae][0], menuname)
+            data[ae] = Button(data[ae][1], prefix + data[ae][0], menuname)
         elif "tickbox" in data[ae][0]:
-            data[ae] = Tickbox(data[ae][1], data[ae][0], menuname)
+            data[ae] = Tickbox(data[ae][1], prefix + data[ae][0], menuname)
 
     return data
 
@@ -1269,49 +1504,52 @@ while running:
                     i.hide()
                     getobject(menus, "newgame").show()
                     menuactive.append("newgame")
-                    x.pressed = False
+
+                x.pressed = False
         elif i.name == "newgame":
             for x in i.buttons:
                 if x.pressed and x.name == "button1":
                     i.hide()
                     getobject(menus, "mainmenu").show()
                     menuactive.append("mainmenu")
-                    x.pressed = False
                 elif x.pressed and x.name == "button2":
-                    i.hide()
-                    x.pressed = False
-                    try:
+                    if getobject(i.txtboxes, "txtbox1").txt.strip("|") == "":
+                        allpopups.newpopup("please enter a number of players")
+                    elif getobject(i.txtboxes, "txtbox2").txt.strip("|") == "":
+                        allpopups.newpopup("please enter a game name")
+                    else:
+                        i.hide()
                         playernumber = int(getobject(i.txtboxes, "txtbox1").txt.strip("|"))
-                    except ValueError:
-                        playernumber = 4
-                    playertotal = playernumber
-                    gamename = getobject(i.txtboxes, "txtbox2").txt.strip("|")
-                    bidrule = getobject(i.tickboxes, "tickbox1").checked
-                    parkrule = getobject(i.tickboxes, "tickbox2").checked
+                        playertotal = playernumber
+                        gamename = getobject(i.txtboxes, "txtbox2").txt.strip("|")
+                        bidrule = getobject(i.tickboxes, "tickbox1").checked
+                        parkrule = getobject(i.tickboxes, "tickbox2").checked
+
+                x.pressed = False
         elif i.name == "playersettings":
             if i.active:
                 for x in i.buttons:
                     if x.pressed:
-                        if x.name == "button11":
-                            if getobject(i.txtboxes, "txtbox2").txt == "":
-                                playerlist.append(Player(hextorgb(getobject(i.txtboxes, "txtbox3").txt), "player " + str(playertotal - playernumber)))
-                            else:
-                                try:
-                                    playerlist.append(Player(hextorgb(getobject(i.txtboxes, "txtbox3").txt), getobject(i.txtboxes, "txtbox2").txt))
-                                except IndexError:
-                                    playerlist.append(Player(hextorgb("beebee"),getobject(i.txtboxes, "txtbox2").txt))
+                        if getobject(i.txtboxes, "txtbox2").txt == "":
+                            allpopups.newpopup("please enter a name")
+                        elif len(getobject(i.txtboxes, "txtbox3").txt) != 6 and x.name == "button11":
+                            allpopups.newpopup("please enter a hex value\nor pick a colour")
                         else:
-                            if (30 + (int(x.name[6:]) - 3) * 40) % 360 == 70:
-                                tempcolour = hsltorgb(60, 0.8, 0.5)
-                                # getting a much nicer yellow
+                            if x.name == "button11":
+                                playerlist.append(Player(hextorgb(getobject(i.txtboxes, "txtbox3").txt), getobject(i.txtboxes, "txtbox2").txt))
                             else:
-                                tempcolour = hsltorgb((30 + (int(x.name[6:]) - 3) * 40) % 360, 0.8, 0.5)
-                            if getobject(i.txtboxes, "txtbox2").txt == "":
-                                playerlist.append(Player(tempcolour, "player " + str(playertotal - playernumber)))
-                            else:
+                                if (30 + (int(x.name[6:]) - 3) * 40) % 360 == 70:
+                                    tempcolour = hsltorgb(60, 0.8, 0.5)
+                                    # getting a much nicer yellow
+                                else:
+                                    tempcolour = hsltorgb((30 + (int(x.name[6:]) - 3) * 40) % 360, 0.8, 0.5)
+                                    # getting nice, equally spaced colours from around the wheel
                                 playerlist.append(Player(tempcolour, getobject(i.txtboxes, "txtbox2").txt))
-                        i.hide()
-                        break
+                            i.hide()
+                            x.pressed = False
+                            break
+
+                        x.pressed = False
 
                 if len(playerlist) == playertotal:
                     gameinfo = Gamestate(playerlist, gamename, bidrule, parkrule)
@@ -1330,26 +1568,22 @@ while running:
         elif i.name == "cardview" and i.active:
             for x in i.buttons:
                 if x.name == "button2" and x.pressed:
-                    x.pressed = False
                     try:
                         cardviewcurrent = (cardviewcurrent - 1) % len(gameinfo.players[gameinfo.playerturn].cards)
                     except ZeroDivisionError:
                         selectedcard = blankimage
 
                 elif x.name == "button3" and x.pressed:
-                    x.pressed = False
                     try:
                         cardviewcurrent = (cardviewcurrent + 1) % len(gameinfo.players[gameinfo.playerturn].cards)
                     except ZeroDivisionError:
                         selectedcard = blankimage
 
                 elif x.name == "button4" and x.pressed:
-                    x.pressed = False
                     i.hide()
                     getobject(menus, "build").show()
 
                 elif x.name == "button5" and x.pressed:
-                    x.pressed = False
                     if selectedcard != blankimage:
                         if gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent] not in gameinfo.mortgaged:
                             gameinfo.players[gameinfo.playerturn].money += setinfo.propertycosts[gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent]] // 2
@@ -1358,6 +1592,10 @@ while running:
                             if gameinfo.players[gameinfo.playerturn].money >= round((setinfo.propertycosts[gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent]] // 2) * 1.1):
                                 gameinfo.players[gameinfo.playerturn].money -= round((setinfo.propertycosts[gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent]] // 2) * 1.1)
                                 gameinfo.mortgaged.remove(gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent])
+                            else:
+                                allpopups.newpopup("you're too poor to\nunmortgage this")
+
+                x.pressed = False
 
                 try:
                     selectedcard = deck[gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent] - 1 * (gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent] // 10 + 1)]  # that maths in the end is for the correction of the deck variable, as it doesn't contain corners
@@ -1370,13 +1608,11 @@ while running:
         elif i.name == "build" and i.active:
             for x in i.buttons:
                 if x.name == "button2" and x.pressed:
-                    x.pressed = False
                     try:
                         buildsetcurrent = (buildsetcurrent - 1) % len(gameinfo.players[gameinfo.playerturn].sets)
                     except ZeroDivisionError:
                         selectedcard = blankimage
                 elif x.name == "button3" and x.pressed:
-                    x.pressed = False
                     try:
                         buildsetcurrent = (buildsetcurrent + 1) % len(gameinfo.players[gameinfo.playerturn].sets)
                     except ZeroDivisionError:
@@ -1386,14 +1622,18 @@ while running:
                     if gameinfo.players[gameinfo.playerturn].money >= setinfo.housecosts[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] and len(gameinfo.players[gameinfo.playerturn].sets) != 0 and gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] < 5:
                         gameinfo.players[gameinfo.playerturn].money -= setinfo.housecosts[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]]
                         gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] += 1
-                    x.pressed = False
                     gameinfo.updatehouses()
                 elif x.name == "button5" and x.pressed:
                     if len(gameinfo.players[gameinfo.playerturn].sets) != 0 and gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] > 0:
                         gameinfo.players[gameinfo.playerturn].money += round(setinfo.housecosts[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] * 0.9)
                         gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] -= 1
-                    x.pressed = False
+                    elif len(gameinfo.players[gameinfo.playerturn].sets) == 0:
+                        allpopups.newpopup("there's nothing to demolish")
+                    else:
+                        allpopups.newpopup("you can't demolish nothing")
                     gameinfo.updatehouses()
+
+                x.pressed = False
 
             try:
                 selectedcard = setimgs[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]]
@@ -1446,7 +1686,7 @@ while running:
                     if not dicerollers.rolled:
                         dicerollers.roll()
                     else:
-                        allpopups.newpopup("you can't press that right now")
+                        allpopups.newpopup("you can't roll right now")
                     x.pressed = False
                 elif x.name == "button6" and x.pressed:
                     x.pressed = False
@@ -1460,6 +1700,8 @@ while running:
                             getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'")
                         else:
                             getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'s")
+                    else:
+                        allpopups.newpopup("you need to move first")
 
             if getobject(i.txtboxes, "txtbox2").txt != "$" + str(gameinfo.players[gameinfo.playerturn].money):
                 getobject(i.txtboxes, "txtbox2").puttext("$" + str(gameinfo.players[gameinfo.playerturn].money))
