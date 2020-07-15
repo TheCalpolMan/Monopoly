@@ -1,0 +1,6 @@
+# all = (x1,y1,x2,y2)
+# buttons = all
+# txtboxes = all + font, maxlength, allowed, editable, align
+# tickboxes = all
+button2 = (52, 124, 157, 157)
+txtbox1 = (28, 72, 185, 93, 10, a1, n, c)

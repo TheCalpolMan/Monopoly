@@ -757,9 +757,10 @@ class Menu:
 
 class Module:
     def __init__(self, name, menuname):
+        self.menuname = menuname
         self.name = name
-        self.base = pygame.image.load(relative + "assets\\menus\\" + menuname + "\\" + name + "base.png").convert_alpha()
-        self.info = readmenu("name" + "info.txt", self.name)
+        self.base = pygame.image.load(relative + "assets\\modular menus\\" + menuname + "\\" + name + ".png")
+        self.info = readmenu(name + ".txt", menuname, module=True)
         self.buttons = []
         self.txtboxes = []
         self.tickboxes = []
@@ -771,6 +772,9 @@ class Module:
             elif "tickbox" in self.info[z].name:
                 self.tickboxes.append(self.info[z])
         self.dims = toImage(self.base).size
+
+    def copymodule(self):
+        return Module(self.name, self.menuname)
 
 
 class ModularMenu:
@@ -785,8 +789,8 @@ class ModularMenu:
 
         self.modules = glob.glob(relative + "assets\\modular menus\\" + self.name + "\\*.txt")
         for z in range(0, len(self.modules)):
-            if "pos.txt" not in self.modules[z]:
-                self.modules[z] = Module(self.modules[z][len(self.name) + 21:-4], self.name)
+            if "pos.txt" not in self.modules[z] and "stitchstates.txt" not in self.modules[z]:
+                self.modules[z] = Module(self.modules[z][len(relative) + len(self.name) + 22:-4], self.name)
             else:
                 topop.append(z)
 
@@ -811,11 +815,32 @@ class ModularMenu:
         self.tickboxes = []
         self.toblit = []
 
+        try:
+            self.stitchstates = open(relative + "assets\\modular menus\\" + self.name + "\\stitchstates.txt").readlines()
+        except FileNotFoundError:
+            self.stitchstates = None
+
+        if self.stitchstates:
+            for z in range(0, len(self.stitchstates)):
+                tempmodules = []
+                tempmodulepos = []
+
+                self.stitchstates[z] = nospaces(self.stitchstates[z]).strip("\n")
+                self.stitchstates[z] = self.stitchstates[z].split(",")
+                for za in range(0, len(self.stitchstates[z]), 3):
+                    tempmodules.append(self.stitchstates[z][za])
+                    tempmodulepos.append((int(self.stitchstates[z][za + 1]), int(self.stitchstates[z][za + 2])))
+
+                self.stitchstates[z] = [tempmodules, tempmodulepos]
+
+    def stitchfromfile(self, predefinedstate):
+        self.stitch(self.stitchstates[predefinedstate][0], self.stitchstates[predefinedstate][1])
+
     def stitch(self, modulestouse, modulepositions):
         self.stitched = True
 
         # little reset
-        self.base = Image.new("RBGA", (1000, 598))
+        self.base = Image.new("RGBA", (1000, 598))
         self.info = []
         self.buttons = []
         self.txtboxes = []
@@ -823,10 +848,16 @@ class ModularMenu:
 
         # actual work
         for z in range(0, len(modulestouse)):
-            tempmodule = getobject(self.modules, modulestouse[z])
+            tempmodule = getobject(self.modules, modulestouse[z]).copymodule()
             for zax in tempmodule.info:
                 self.info.append(zax)
-            self.base.paste(tempmodule.base, modulepositions[z], tempmodule.base)
+                self.info[-1].dims = [self.info[-1].dims[0] + modulepositions[z][0], self.info[-1].dims[1] + modulepositions[z][1], self.info[-1].dims[2] + modulepositions[z][0], self.info[-1].dims[3] + modulepositions[z][1]]
+                self.info[-1].x1 = self.info[-1].dims[0]
+                self.info[-1].y1 = self.info[-1].dims[1]
+                self.info[-1].x2 = self.info[-1].dims[2]
+                self.info[-1].y2 = self.info[-1].dims[3]
+            self.base.paste(toImage(tempmodule.base), modulepositions[z], toImage(tempmodule.base))
+            del tempmodule
 
         for z in range(0, len(self.info)):
             if "button" in self.info[z].name:
@@ -835,9 +866,10 @@ class ModularMenu:
                 self.txtboxes.append(self.info[z])
             elif "tickbox" in self.info[z].name:
                 self.tickboxes.append(self.info[z])
-        self.x2 = self.x1 + toImage(self.base).size[0]
-        self.y2 = self.y1 + toImage(self.base).size[1]
-        self.dims = toImage(self.base).size
+        self.x2 = self.x1 + self.base.size[0]
+        self.y2 = self.y1 + self.base.size[1]
+        self.dims = self.base.size
+        self.base = topygame(self.base)
 
     def show(self, position=("a", "b")):
         if position != ("a" ,"b"):
@@ -964,7 +996,10 @@ class Button:
     def __init__(self, dims, name, menuname):
         self.module = None
         self.name = name
-        self.image = pygame.image.load(relative + "assets\\menus\\" + menuname + "\\" + name + ".png").convert_alpha()
+        try:
+            self.image = pygame.image.load(relative + "assets\\menus\\" + menuname + "\\" + name + ".png").convert_alpha()
+        except pygame.error:
+            self.image = pygame.image.load(relative + "assets\\modular menus\\" + menuname + "\\" + name + ".png").convert_alpha()
         self.pressed = False
         self.dims = dims
         self.x1 = dims[0]
@@ -1173,6 +1208,12 @@ def getname(string):
 
 
 def readmenu(txtfile, menuname, module=False):
+    if module:
+        if ".txt" in txtfile:
+            modulename = txtfile[0:-4]
+        else:
+            modulename = txtfile
+
     if ".txt" in txtfile:
         if module:
             txtfile = open(relative + "assets\\modular menus\\" + menuname + "\\" + txtfile)
@@ -1209,7 +1250,7 @@ def readmenu(txtfile, menuname, module=False):
             data.append([getname(line), content])
 
     if module:
-        prefix = menuname
+        prefix = modulename
     else:
         prefix = ""
 
@@ -1377,6 +1418,13 @@ for i in range(0, len(menus)):
     if menus[i].name == "mainmenu":
         menus[i].show()
         menuactive = [menus[i].name]
+
+modularmenus = glob.glob(relative + "assets\\modular menus\\*")
+for i in modularmenus:
+    menus.append(i)
+
+for i in range(len(menus) - len(modularmenus), len(menus)):
+    menus[i] = ModularMenu(menus[i][len(relative) + 21:])
 
 skip = 0
 for i in range(0, len(menus)):
@@ -1553,6 +1601,7 @@ while running:
 
                 if len(playerlist) == playertotal:
                     gameinfo = Gamestate(playerlist, gamename, bidrule, parkrule)
+                    getobject(menus, "tradingselector").stitchfromfile(len(gameinfo.players) - 2)
                     if gameinfo.players[gameinfo.playerturn].name[-1] == "s":
                         getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'")
                     else:
@@ -1681,6 +1730,9 @@ while running:
                     gameinfo.players[gameinfo.playerturn].sets = [0, 1, 2, 3, 4, 6]
                     buildsetcurrent = 0
                     getobject(menus, "build").show()
+                    x.pressed = False
+                elif x.name == "button4" and x.pressed:
+                    getobject(menus, "tradingselector").show()
                     x.pressed = False
                 elif x.name == "button5" and x.pressed:
                     if not dicerollers.rolled:
