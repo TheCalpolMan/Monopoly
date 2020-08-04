@@ -1,8 +1,8 @@
-One, 0, 0
-TopNub, 0, 0, BottomNub, 0, 249
-NW, 0, 0, BottomNub, 0, 249, RightNub, 205, 0
-NW, 0, 0, SW, 0, 249, NE, 205, 0, SE, 205, 249
-NW, 0, 0, SW, 0, 249, MidTop, 205, 0, SE, 205, 249, RightNub, 400, 0
-NW, 0, 0, SW, 0, 249, MidTop, 205, 0, MidBottom, 205, 249, NE, 400, 0, SE, 400, 249
-NW, 0, 0, SW, 0, 249, MidTop, 205, 0, MidBottom, 205, 249, MidTop, 400, 0, RightNub, 595, 0, SE, 400, 249
-NW, 0, 0, SW, 0, 249, MidTop, 205, 0, MidBottom, 205, 249, MidTop, 400, 0, MidBottom, 400, 249, NE, 595, 0, SE, 595, 249
+One, 0, 0, BackButton, 20, 205
+TopNub, 0, 0, BottomNub, 0, 249, BackButton, 20, 444
+NW, 0, 0, BottomNub, 0, 249, RightNub, 205, 0, BackButton, 20, 444
+NW, 0, 0, SW, 0, 249, NE, 205, 0, SE, 205, 249, BackButton, 20, 444
+NW, 0, 0, SW, 0, 249, MidTop, 205, 0, SE, 205, 249, RightNub, 400, 0, BackButton, 20, 444
+NW, 0, 0, SW, 0, 249, MidTop, 205, 0, MidBottom, 205, 249, NE, 400, 0, SE, 400, 249, BackButton, 20, 444
+NW, 0, 0, SW, 0, 249, MidTop, 205, 0, MidBottom, 205, 249, MidTop, 400, 0, RightNub, 595, 0, SE, 400, 249, BackButton, 20, 444
+NW, 0, 0, SW, 0, 249, MidTop, 205, 0, MidBottom, 205, 249, MidTop, 400, 0, MidBottom, 400, 249, NE, 595, 0, SE, 595, 249, BackButton, 20, 444

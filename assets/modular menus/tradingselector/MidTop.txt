@@ -3,4 +3,4 @@
 # txtboxes = all + font, maxlength, allowed, editable, align
 # tickboxes = all
 button2 = (42, 134, 147, 167)
-txtbox1 = (18, 82, 175, 103, 10, a1, n, c)
+txtbox1 = (14, 82, 181, 104, h1, 10, a1, n, c)

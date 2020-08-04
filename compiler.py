@@ -2,6 +2,7 @@ import PyInstaller.__main__
 import os
 import shutil
 import sys
+import time
 
 # ------------------------------------------------------------------------------------------------------------
 
@@ -29,11 +30,11 @@ if executable:
 
 relative = relative[0:cut]
 
-relative = "G:\\Code\\Python Stuff\\Games\\Monopoly\\actual game\\"
-
 # ------------------------------------------------------------------------------------------------------------
 
 PyInstaller.__main__.run(["-w", "-F", relative + "streamline.py"])
+
+os.remove("G:\\Code\\Python Stuff\\Games\\Monopoly\\actual game\\monopoly.exe")
 os.rename("G:\\Code\\Python Stuff\\Games\\Monopoly\\actual game\\dist\\streamline.exe", "G:\\Code\\Python Stuff\\Games\\Monopoly\\actual game\\monopoly.exe")
 
 shutil.rmtree("G:\\Code\\Python Stuff\\Games\\Monopoly\\actual game\\dist")

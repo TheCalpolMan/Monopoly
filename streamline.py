@@ -5,6 +5,14 @@ import sys
 from random import randint
 
 
+class Trade:
+    def __init__(self, contents, sender):
+        self.contents = contents
+        self.sender = sender
+        self.send = contents[1]
+        self.get = contents[0]
+
+
 class Popup:
     def __init__(self, text, colour="990000", alpha=255):
         if len(colour) != 4:
@@ -209,7 +217,7 @@ class Setinfo:
             self.propertycosts.append(0)
 
         # this for loop is just changing all of the property costs to proper ones
-        for zzm in range(0 ,1):
+        for zzm in range(0, 1):
             self.propertycosts[1] = 60
             self.propertycosts[3] = 60
             self.propertycosts[5] = 200
@@ -288,6 +296,7 @@ class Player:
         self.money = 1500
         self.cards = []
         self.sets = []
+        self.trades = []
         self.place = 0
         self.img = pygame.image.load(relative + "assets\\player\\piece.png")
         colourmask = pygame.Surface(self.img.get_size())
@@ -308,7 +317,7 @@ class Gamestate:
         self.cards = []
         self.mortgaged = []
         for za in range(1, 40):
-            if za not in [2, 4, 7, 17, 22, 33, 36, 38]:
+            if za not in [0, 2, 4, 7, 10, 17, 20, 22, 30, 33, 36, 38]:
                 self.cards.append(za)
         for za in range(0, len(self.players)):
             self.players[za].coords = [(938, 531), (948, 531), (958, 531), (968, 531), (978, 531), (988, 531), (988, 541), (988, 551), (988, 561)][za]
@@ -317,6 +326,9 @@ class Gamestate:
         for za in range(0, 8):
             self.houseimages.append(0)
         self.updatehouses()
+
+    def currentplayer(self):
+        return self.players[self.playerturn]
 
     def updateplayerpos(self):
         positions = []
@@ -539,8 +551,7 @@ class Gamestate:
                 elif self.players[zz].place // 10 == 1:  # left
                     self.players[zz].coords = (((- playery) % 598) - 8 + 402 - 1, playerx)
                 elif self.players[zz].place // 10 == 3:  # right
-                    self.players[zz].coords = (
-                    playery + 402, 590 - playerx + 102 * ((self.players[zz].place % 10) - 5) - 3)
+                    self.players[zz].coords = (playery + 402, 590 - playerx + 102 * ((self.players[zz].place % 10) - 5) - 3)
                 else:  # top
                     self.players[zz].coords = (playerx + 102 * ((self.players[zz].place % 10) - 5) + 402, playery - 528)
                 # note - this maths was annoying
@@ -635,7 +646,7 @@ class Menu:
         self.dims = toImage(self.base).size
 
     def show(self, position=("a", "b")):
-        if position != ("a" ,"b"):
+        if position != ("a", "b"):
             self.winpos = position
         self.active = True
 
@@ -779,6 +790,7 @@ class Module:
 
 class ModularMenu:
     def __init__(self, name):
+        self.winposfile = False
         self.stitched = False
         self.base = None
         self.active = False
@@ -800,6 +812,7 @@ class ModularMenu:
 
         try:
             self.winpos = nospaces(open(relative + "assets\\modular menus\\" + self.name + "\\pos.txt").readlines()[0]).split(",")
+            self.winposfile = True
         except FileNotFoundError:
             self.winpos = ["0", "0"]
         for z in range(0, len(self.winpos)):
@@ -859,6 +872,7 @@ class ModularMenu:
             self.base.paste(toImage(tempmodule.base), modulepositions[z], toImage(tempmodule.base))
             del tempmodule
 
+        self.base = self.base.crop(self.base.getbbox())
         for z in range(0, len(self.info)):
             if "button" in self.info[z].name:
                 self.buttons.append(self.info[z])
@@ -866,13 +880,18 @@ class ModularMenu:
                 self.txtboxes.append(self.info[z])
             elif "tickbox" in self.info[z].name:
                 self.tickboxes.append(self.info[z])
+        if not self.winposfile:
+            self.x1 = 500 - self.base.size[0] // 2
+            self.y1 = 299 - self.base.size[1] // 2
+            self.winpos = (self.x1, self.y1)
+
         self.x2 = self.x1 + self.base.size[0]
         self.y2 = self.y1 + self.base.size[1]
         self.dims = self.base.size
         self.base = topygame(self.base)
 
     def show(self, position=("a", "b")):
-        if position != ("a" ,"b"):
+        if position != ("a", "b"):
             self.winpos = position
         self.active = True
 
@@ -999,7 +1018,10 @@ class Button:
         try:
             self.image = pygame.image.load(relative + "assets\\menus\\" + menuname + "\\" + name + ".png").convert_alpha()
         except pygame.error:
-            self.image = pygame.image.load(relative + "assets\\modular menus\\" + menuname + "\\" + name + ".png").convert_alpha()
+            try:
+                self.image = pygame.image.load(relative + "assets\\modular menus\\" + menuname + "\\" + name + ".png").convert_alpha()
+            except pygame.error:
+                self.image = blankimage
         self.pressed = False
         self.dims = dims
         self.x1 = dims[0]
@@ -1360,7 +1382,7 @@ def everyitem(listtosearch, item):
     return True
 
 
-def listcompare(list1,list2,allorany="all"):
+def listcompare(list1, list2, allorany="all"):
     if allorany.lower() == "all":
         for item in list1:
             if item not in list2:
@@ -1371,6 +1393,87 @@ def listcompare(list1,list2,allorany="all"):
             if item in list2:
                 return True
         return False
+
+
+def trademenudrawblit():
+    global tradestitched
+    tradestitched = Image.new("RGBA", (800, 498), (0, 0, 0, 0))
+
+    for ace in range(len(tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)])):
+        if tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in setinfo.setcomps[0]:
+            tempimage = getfromname(overlays, "smallcard0")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in setinfo.setcomps[1]:
+            tempimage = getfromname(overlays, "smallcard1")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in setinfo.setcomps[2]:
+            tempimage = getfromname(overlays, "smallcard2")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in setinfo.setcomps[3]:
+            tempimage = getfromname(overlays, "smallcard3")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in setinfo.setcomps[4]:
+            tempimage = getfromname(overlays, "smallcard4")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in setinfo.setcomps[5]:
+            tempimage = getfromname(overlays, "smallcard5")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in setinfo.setcomps[6]:
+            tempimage = getfromname(overlays, "smallcard6")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in setinfo.setcomps[7]:
+            tempimage = getfromname(overlays, "smallcard7")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] in (5, 15, 25, 35):
+            tempimage = getfromname(overlays, "smallcard8")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] == 12:
+            tempimage = getfromname(overlays, "smallcard9")[1]
+        elif tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][ace] == 28:
+            tempimage = getfromname(overlays, "smallcard10")[1]
+
+        tradestitched.paste(toImage(tempimage), (20 + 62 * (ace % 3), 20 + 78 * (ace // 3)))
+
+    for ace in range(len(tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)])):
+        if tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in setinfo.setcomps[0]:
+            tempimage = getfromname(overlays, "smallcard0")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in setinfo.setcomps[1]:
+            tempimage = getfromname(overlays, "smallcard1")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in setinfo.setcomps[2]:
+            tempimage = getfromname(overlays, "smallcard2")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in setinfo.setcomps[3]:
+            tempimage = getfromname(overlays, "smallcard3")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in setinfo.setcomps[4]:
+            tempimage = getfromname(overlays, "smallcard4")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in setinfo.setcomps[5]:
+            tempimage = getfromname(overlays, "smallcard5")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in setinfo.setcomps[6]:
+            tempimage = getfromname(overlays, "smallcard6")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in setinfo.setcomps[7]:
+            tempimage = getfromname(overlays, "smallcard7")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] in (5, 15, 25, 35):
+            tempimage = getfromname(overlays, "smallcard8")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] == 12:
+            tempimage = getfromname(overlays, "smallcard9")[1]
+        elif tradecards[1][1 * tradepage[1]:18 * (tradepage[1] + 1)][ace] == 28:
+            tempimage = getfromname(overlays, "smallcard10")[1]
+
+        tradestitched.paste(toImage(tempimage), (605 + 62 * (ace % 3), 20 + 78 * (ace // 3)))
+        del tempimage
+
+    tradestitched = topygame(tradestitched)
+
+
+def trademenudrawblitticks():
+    global tradestitched
+    trademenudrawblit()
+
+    tradestitched = toImage(tradestitched)
+    tickimg = toImage(getfromname(overlays, "tick")[1])
+    tempnumber = 0
+    for ace in tradebasket[0]:
+        tempnumber = tradecards[0].index(ace) - 18 * tradepage[0]
+        if tempnumber >= 0:
+            tradestitched.paste(tickimg, (54 + 62 * (tempnumber % 3), 69 + 78 * (tempnumber // 3)), tickimg)
+
+    for ace in tradebasket[1]:
+        tempnumber = tradecards[1].index(ace) - 18 * tradepage[1]
+        if tempnumber >= 0:
+            tradestitched.paste(tickimg, (638 + 62 * (tempnumber % 3), 69 + 78 * (tempnumber // 3)), tickimg)
+
+    del tempnumber, tickimg
+    tradestitched = topygame(tradestitched)
 
 
 # ------------------------------------------------------------------------------------------------------------
@@ -1408,7 +1511,7 @@ clock = pygame.time.Clock()
 # pygame.mixer.music.play()
 # pygame.mixer.music.set_endevent()
 
-window = pygame.display.set_mode((1000,598))# , pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE)
+window = pygame.display.set_mode((1000, 598))# , pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE)
 blankimage = topygame(Image.new("RGBA", (1, 1), (0, 0, 0, 0)))
 
 donepressed = False
@@ -1445,7 +1548,7 @@ setinfo = Setinfo()
 bg = pygame.image.load(relative + "assets\\background.png").convert_alpha()
 deck = []
 setimgs = []
-for i in range(0,36):
+for i in range(0, 36):
     deck.append(pygame.image.load(relative + "assets\\board\\" + str(i + i // 9 + 1) + ".png").convert_alpha())
 for i in range(0, 8):
     setimgs.append(pygame.image.load(relative + "assets\\sets\\" + str(i) + ".png").convert_alpha())
@@ -1461,6 +1564,12 @@ doubles = 0
 playerlist = []
 allpopups = Popupcontainer(5)
 gameinfo = ""
+boardinterract = False
+tradepartner = None
+tradebasket = [[], []]
+tradecards = [[], []]
+tradepage = [0, 0]
+tradestitched = blankimage
 counter = 0
 moved = False
 destination = -1
@@ -1501,29 +1610,31 @@ while running:
             counter += 1
             if counter == 60:
                 counter = 0
-                if destination == -1 and not gameinfo.players[gameinfo.playerturn].jail:
-                    destination = (gameinfo.players[gameinfo.playerturn].place + dicerollers.trueresults[0] + dicerollers.trueresults[1]) % 40
-                elif destination == -1 and gameinfo.players[gameinfo.playerturn].jail and dicerollers.trueresults[0] == dicerollers.trueresults[1]:
-                    gameinfo.players[gameinfo.playerturn].jail = False
+                if destination == -1 and not gameinfo.currentplayer().jail:
+                    destination = (gameinfo.currentplayer().place + dicerollers.trueresults[0] + dicerollers.trueresults[1]) % 40
+                elif destination == -1 and gameinfo.currentplayer().jail and dicerollers.trueresults[0] == dicerollers.trueresults[1]:
+                    gameinfo.currentplayer().jail = False
                     destination = (10 + dicerollers.trueresults[0] + dicerollers.trueresults[1]) % 40
-                elif destination == -1 and gameinfo.players[gameinfo.playerturn].jail and dicerollers.trueresults[0] != dicerollers.trueresults[1]:
-                    gameinfo.players[gameinfo.playerturn].jail -= 1
-                    if gameinfo.players[gameinfo.playerturn].jail == 0:
-                        gameinfo.players[gameinfo.playerturn].jail = False
+                elif destination == -1 and gameinfo.currentplayer().jail and dicerollers.trueresults[0] != dicerollers.trueresults[1]:
+                    gameinfo.currentplayer().jail -= 1
+                    if gameinfo.currentplayer().jail == 0:
+                        gameinfo.currentplayer().jail = False
 
-        if counter % 20 == 0 and destination != -1 and gameinfo.players[gameinfo.playerturn].place < destination and not moved:
-            gameinfo.players[gameinfo.playerturn].place = (gameinfo.players[gameinfo.playerturn].place + 1) % 40
+        if counter % 20 == 0 and destination != -1 and gameinfo.currentplayer().place < destination and not moved:
+            gameinfo.currentplayer().place = (gameinfo.currentplayer().place + 1) % 40
             gameinfo.updateplayerpos()
 
-        if destination == gameinfo.players[gameinfo.playerturn].place:
+        if destination == gameinfo.currentplayer().place:
+            if gameinfo.currentplayer().place in gameinfo.cards:
+                boardinterract = 1
             counter = 0
             destination = -1
             moved = True
             if dicerollers.trueresults[0] == dicerollers.trueresults[1] and doubles < 3:
                 doubles += 1
                 if doubles == 3:
-                    gameinfo.players[gameinfo.playerturn].place = 40
-                    gameinfo.players[gameinfo.playerturn].jail = 3
+                    gameinfo.currentplayer().place = 40
+                    gameinfo.currentplayer().jail = 3
                     gameinfo.updateplayerpos()
                 else:
                     moved = False
@@ -1554,7 +1665,7 @@ while running:
                     menuactive.append("newgame")
 
                 x.pressed = False
-        elif i.name == "newgame":
+        elif i.name == "newgame" and i.active:
             for x in i.buttons:
                 if x.pressed and x.name == "button1":
                     i.hide()
@@ -1602,11 +1713,13 @@ while running:
                 if len(playerlist) == playertotal:
                     gameinfo = Gamestate(playerlist, gamename, bidrule, parkrule)
                     getobject(menus, "tradingselector").stitchfromfile(len(gameinfo.players) - 2)
-                    if gameinfo.players[gameinfo.playerturn].name[-1] == "s":
-                        getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'")
+                    for y in range(1, len(playerlist)):
+                        getobject(menus, "tradingselector").txtboxes[y - 1].puttext(gameinfo.players[y].name)
+                    if gameinfo.currentplayer().name[-1] == "s":
+                        getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.currentplayer().name + "'")
                     else:
-                        getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'s")
-                    getobject(getobject(menus, "overlay").txtboxes, "txtbox2").puttext("$" + str(gameinfo.players[gameinfo.playerturn].money))
+                        getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.currentplayer().name + "'s")
+                    getobject(getobject(menus, "overlay").txtboxes, "txtbox2").puttext("$" + str(gameinfo.currentplayer().money))
 
             if playernumber > 0 and not i.active:
                 playernumber -= 1
@@ -1618,13 +1731,13 @@ while running:
             for x in i.buttons:
                 if x.name == "button2" and x.pressed:
                     try:
-                        cardviewcurrent = (cardviewcurrent - 1) % len(gameinfo.players[gameinfo.playerturn].cards)
+                        cardviewcurrent = (cardviewcurrent - 1) % len(gameinfo.currentplayer().cards)
                     except ZeroDivisionError:
                         selectedcard = blankimage
 
                 elif x.name == "button3" and x.pressed:
                     try:
-                        cardviewcurrent = (cardviewcurrent + 1) % len(gameinfo.players[gameinfo.playerturn].cards)
+                        cardviewcurrent = (cardviewcurrent + 1) % len(gameinfo.currentplayer().cards)
                     except ZeroDivisionError:
                         selectedcard = blankimage
 
@@ -1634,49 +1747,49 @@ while running:
 
                 elif x.name == "button5" and x.pressed:
                     if selectedcard != blankimage:
-                        if gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent] not in gameinfo.mortgaged:
-                            gameinfo.players[gameinfo.playerturn].money += setinfo.propertycosts[gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent]] // 2
-                            gameinfo.mortgaged.append(gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent])
+                        if gameinfo.currentplayer().cards[cardviewcurrent] not in gameinfo.mortgaged:
+                            gameinfo.currentplayer().money += setinfo.propertycosts[gameinfo.currentplayer().cards[cardviewcurrent]] // 2
+                            gameinfo.mortgaged.append(gameinfo.currentplayer().cards[cardviewcurrent])
                         else:
-                            if gameinfo.players[gameinfo.playerturn].money >= round((setinfo.propertycosts[gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent]] // 2) * 1.1):
-                                gameinfo.players[gameinfo.playerturn].money -= round((setinfo.propertycosts[gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent]] // 2) * 1.1)
-                                gameinfo.mortgaged.remove(gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent])
+                            if gameinfo.currentplayer().money >= round((setinfo.propertycosts[gameinfo.currentplayer().cards[cardviewcurrent]] // 2) * 1.1):
+                                gameinfo.currentplayer().money -= round((setinfo.propertycosts[gameinfo.currentplayer().cards[cardviewcurrent]] // 2) * 1.1)
+                                gameinfo.mortgaged.remove(gameinfo.currentplayer().cards[cardviewcurrent])
                             else:
                                 allpopups.newpopup("you're too poor to\nunmortgage this")
 
                 x.pressed = False
 
                 try:
-                    selectedcard = deck[gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent] - 1 * (gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent] // 10 + 1)]  # that maths in the end is for the correction of the deck variable, as it doesn't contain corners
+                    selectedcard = deck[gameinfo.currentplayer().cards[cardviewcurrent] - 1 * (gameinfo.currentplayer().cards[cardviewcurrent] // 10 + 1)]  # that maths in the end is for the correction of the deck variable, as it doesn't contain corners
                 except IndexError:
                     selectedcard = blankimage
                 i.toblit.append([selectedcard, (i.x1 + 273, i.y1 + 123)])
                 if selectedcard != blankimage:
-                    if gameinfo.players[gameinfo.playerturn].cards[cardviewcurrent] in gameinfo.mortgaged:
+                    if gameinfo.currentplayer().cards[cardviewcurrent] in gameinfo.mortgaged:
                         i.toblit.append([getfromname(overlays, "mortgaged")[1], (i.x1 + 283, i.y1 + 211)])
         elif i.name == "build" and i.active:
             for x in i.buttons:
                 if x.name == "button2" and x.pressed:
                     try:
-                        buildsetcurrent = (buildsetcurrent - 1) % len(gameinfo.players[gameinfo.playerturn].sets)
+                        buildsetcurrent = (buildsetcurrent - 1) % len(gameinfo.currentplayer().sets)
                     except ZeroDivisionError:
                         selectedcard = blankimage
                 elif x.name == "button3" and x.pressed:
                     try:
-                        buildsetcurrent = (buildsetcurrent + 1) % len(gameinfo.players[gameinfo.playerturn].sets)
+                        buildsetcurrent = (buildsetcurrent + 1) % len(gameinfo.currentplayer().sets)
                     except ZeroDivisionError:
                         selectedcard = blankimage
 
                 elif x.name == "button4" and x.pressed:
-                    if gameinfo.players[gameinfo.playerturn].money >= setinfo.housecosts[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] and len(gameinfo.players[gameinfo.playerturn].sets) != 0 and gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] < 5:
-                        gameinfo.players[gameinfo.playerturn].money -= setinfo.housecosts[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]]
-                        gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] += 1
+                    if gameinfo.currentplayer().money >= setinfo.housecosts[gameinfo.currentplayer().sets[buildsetcurrent]] and len(gameinfo.currentplayer().sets) != 0 and gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] < 5:
+                        gameinfo.currentplayer().money -= setinfo.housecosts[gameinfo.currentplayer().sets[buildsetcurrent]]
+                        gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] += 1
                     gameinfo.updatehouses()
                 elif x.name == "button5" and x.pressed:
-                    if len(gameinfo.players[gameinfo.playerturn].sets) != 0 and gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] > 0:
-                        gameinfo.players[gameinfo.playerturn].money += round(setinfo.housecosts[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] * 0.9)
-                        gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] -= 1
-                    elif len(gameinfo.players[gameinfo.playerturn].sets) == 0:
+                    if len(gameinfo.currentplayer().sets) != 0 and gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] > 0:
+                        gameinfo.currentplayer().money += round(setinfo.housecosts[gameinfo.currentplayer().sets[buildsetcurrent]] * 0.9)
+                        gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] -= 1
+                    elif len(gameinfo.currentplayer().sets) == 0:
                         allpopups.newpopup("there's nothing to demolish")
                     else:
                         allpopups.newpopup("you can't demolish nothing")
@@ -1685,25 +1798,25 @@ while running:
                 x.pressed = False
 
             try:
-                selectedcard = setimgs[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]]
+                selectedcard = setimgs[gameinfo.currentplayer().sets[buildsetcurrent]]
             except IndexError:
                 selectedcard = blankimage
             i.toblit.append([selectedcard, (i.x1 + 273, i.y1 + 123)])
 
-            if len(gameinfo.players[gameinfo.playerturn].sets) != 0:
-                if gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] == 0:
+            if len(gameinfo.currentplayer().sets) != 0:
+                if gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] == 0:
                     temptext2 = "zero houses"
-                elif gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] == 1:
+                elif gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] == 1:
                     temptext2 = "one house"
-                elif gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] == 2:
+                elif gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] == 2:
                     temptext2 = "two houses"
-                elif gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] == 3:
+                elif gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] == 3:
                     temptext2 = "three houses"
-                elif gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] == 4:
+                elif gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] == 4:
                     temptext2 = "four houses"
                 else:
                     temptext2 = "one hotel"
-                if gameinfo.sets[gameinfo.players[gameinfo.playerturn].sets[buildsetcurrent]] in [1, 5]:
+                if gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] in [1, 5]:
                     temptext = "there is"
                 else:
                     temptext = "there are"
@@ -1718,16 +1831,95 @@ while running:
                 i.hide()
             else:
                 i.show()
+        elif i.name == "tradingselector" and i.active:
+            for x in range(0, len(i.buttons)):
+                if i.buttons[x].pressed:
+                    if i.buttons[x].name == "BackButtonbutton1":
+                        i.active = False
+                    else:
+                        tradepartner = x + int(gameinfo.playerturn <= x)
+                        tradepage = [0, 0]
+                        tradecards[0] = gameinfo.currentplayer().cards
+                        tradecards[1] = gameinfo.players[tradepartner].cards
+                        trademenudrawblit()
+
+                        i.active = False
+                        getobject(menus, "trade").active = True
+                    i.buttons[x].pressed = False
+        elif i.name == "trade" and i.active:
+            i.toblit.append([tradestitched, [100, 50]])
+
+            for x in i.buttons:
+                if x.pressed:
+                    if x.name not in ["button1", "button2", "button3", "button4"]:
+                        if "l" in x.name and int(x.name[6:-1]) + 18 * tradepage[0] <= len(tradecards[0]):
+                            if gameinfo.currentplayer().cards[int(x.name[6:-1]) - 1 + 18 * tradepage[0]] not in tradebasket[0]:
+                                tradebasket[0].append(gameinfo.currentplayer().cards[int(x.name[6:-1]) - 1 + 18 * tradepage[0]])
+                            else:
+                                tradebasket[0].remove(gameinfo.currentplayer().cards[int(x.name[6:-1]) - 1 + 18 * tradepage[0]])
+                            tradebasket[0].sort()
+                        elif int(x.name[6:-1]) + 18 * tradepage[1] <= len(tradecards[1]):
+                            if tradecards[1][int(x.name[6:-1]) - 1 + 18 * tradepage[1]] not in tradebasket[1]:
+                                tradebasket[1].append(tradecards[1][int(x.name[6:-1]) - 1 + 18 * tradepage[1]])
+                            else:
+                                tradebasket[1].remove(tradecards[1][int(x.name[6:-1]) - 1 + 18 * tradepage[1]])
+                            tradebasket[1].sort()
+
+                        trademenudrawblitticks()
+
+                    elif x.name == "button3" and len(gameinfo.currentplayer().cards) > 18:
+                        tradepage[0] = (tradepage[0] + 1) % (len(gameinfo.currentplayer().cards) // 18 + 1 * (len(gameinfo.currentplayer().cards) % 18 != 0))
+                        trademenudrawblitticks()
+                    elif x.name == "button4" and len(tradecards[1]) > 18:
+                        tradepage[1] = (tradepage[1] + 1) % (len(tradecards[1]) // 18 + 1 * (len(tradecards[1]) % 18 != 0))
+                        trademenudrawblitticks()
+                    elif x.name == "button2":
+                        if len(tradebasket[0]) == 0 and len(tradebasket[1]) == 0:
+                            allpopups.newpopup("you can't send a trade of nothing")
+                        else:
+                            i.active = False
+                            gameinfo.players[tradepartner].trades.append(Trade(tradebasket, gameinfo.playerturn))
+                            allpopups.newpopup("trade offer sent", "007acc")
+
+                    x.pressed = False
+
+                elif x.iscolliding(pos, i.winpos):
+                    if "l" in x.name and int(x.name[6:-1]) + 18 * tradepage[0] <= len(tradecards[0]):
+                        i.toblit.append([deck[tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][int(x.name[6:-1]) - 1] - tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][int(x.name[6:-1]) - 1] // 10 - 1], (373, 76)])
+                    elif "r" in x.name and int(x.name[6:-1]) + 18 * tradepage[1] <= len(tradecards[1]):
+                        i.toblit.append([deck[tradecards[1][18 * tradepage[1]:18 * (tradepage[1] + 1)][int(x.name[6:-1]) - 1] - tradecards[1][18 * tradepage[1]:18 * (tradepage[1] + 1)][int(x.name[6:-1]) - 1] // 10 - 1], (373, 76)])
+        elif i.name == "buyorbid":
+            if boardinterract > 60:
+                i.active = True
+                boardinterract = False
+            elif boardinterract > 0:
+                boardinterract += 1
+            if i.active:
+                i.toblit.append([deck[gameinfo.currentplayer().place - gameinfo.currentplayer().place // 10 - 1], (372, 96)])
+
+                for x in i.buttons:
+                    if x.pressed:
+                        if x.name == "button3":
+                            if gameinfo.currentplayer().money >= setinfo.propertycosts[gameinfo.currentplayer().place]:
+                                gameinfo.currentplayer().money -= setinfo.propertycosts[gameinfo.currentplayer().place]
+                                gameinfo.currentplayer().cards.append(gameinfo.currentplayer().place)
+                                gameinfo.cards.remove(gameinfo.currentplayer().place)
+                                allpopups.newpopup("property purchased", "007acc")
+                                i.active = False
+                            else:
+                                allpopups.newpopup("this is too expensive for you to purchase")
+                        x.pressed = False
 
         if i.name == "overlay" and i.active:
             for x in i.buttons:
                 if x.name == "button2" and x.pressed:
-                    gameinfo.players[gameinfo.playerturn].cards = [1, 3, 5, 15, 25]
+                    # gameinfo.currentplayer().cards = [1, 3, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 18, 19, 21, 23, 24, 25, 26]
+                    # gameinfo.players[1].cards = [27, 28, 29, 31, 32, 34, 35, 37, 39]
                     cardviewcurrent = 0
                     getobject(menus, "cardview").show()
                     x.pressed = False
                 elif x.name == "button3" and x.pressed:
-                    gameinfo.players[gameinfo.playerturn].sets = [0, 1, 2, 3, 4, 6]
+                    gameinfo.currentplayer().sets = [0, 1, 2, 3, 4, 6]
                     buildsetcurrent = 0
                     getobject(menus, "build").show()
                     x.pressed = False
@@ -1748,15 +1940,15 @@ while running:
                         moved = False
                         destination = -1
                         dicerollers.reset()
-                        if gameinfo.players[gameinfo.playerturn].name[-1] == "s":
-                            getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'")
+                        if gameinfo.currentplayer().name[-1] == "s":
+                            getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.currentplayer().name + "'")
                         else:
-                            getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.players[gameinfo.playerturn].name + "'s")
+                            getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.currentplayer().name + "'s")
                     else:
                         allpopups.newpopup("you need to move first")
 
-            if getobject(i.txtboxes, "txtbox2").txt != "$" + str(gameinfo.players[gameinfo.playerturn].money):
-                getobject(i.txtboxes, "txtbox2").puttext("$" + str(gameinfo.players[gameinfo.playerturn].money))
+            if getobject(i.txtboxes, "txtbox2").txt != "$" + str(gameinfo.currentplayer().money):
+                getobject(i.txtboxes, "txtbox2").puttext("$" + str(gameinfo.currentplayer().money))
 
         if i.active and i.name != "overlay" and i.name not in menuactive:
             menuactive.append(i.name)
@@ -1775,7 +1967,13 @@ while running:
         menus[-1].update(events=eventlist, mousestate=mousedown)
     else:
         for i in menus:
-            i.update(events=eventlist, mousestate=mousedown)
+            if i.name == "overlay":
+                if len(menuactive) > 0:
+                    i.shownoaction()
+                else:
+                    i.update(events=eventlist, mousestate=mousedown)
+            else:
+                i.update(events=eventlist, mousestate=mousedown)
 
     # aight we're done with that
 
