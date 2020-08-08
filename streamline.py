@@ -14,7 +14,7 @@ class Trade:
 
 
 class Popup:
-    def __init__(self, text, colour="990000", alpha=255):
+    def __init__(self, text, colour="990000", alpha=255, font="message", box=True):
         if len(colour) != 4:
             if len(colour) == 7:
                 self.colour = hextorgb(colour[1:])
@@ -25,6 +25,7 @@ class Popup:
             self.colour = colour
 
         self.text = text
+        self.font = font
 
         self.img = Image.new("RGBA", (1000, 300), (0, 0, 0, 0))
 
@@ -38,17 +39,21 @@ class Popup:
                 xpos = 0
                 continue
             elif symbol == ".":
-                character = Image.open(relative + "assets\\fonts\\message\\punkt.png")
+                character = Image.open(relative + "assets\\fonts\\" + font + "\\punkt.png")
             elif symbol == "|":
-                character = Image.open(relative + "assets\\fonts\\message\\line.png")
+                character = Image.open(relative + "assets\\fonts\\" + font + "\\line.png")
             elif symbol == "$":
-                character = Image.open(relative + "assets\\fonts\\message\\mm.png")
+                character = Image.open(relative + "assets\\fonts\\" + font + "\\mm.png")
             elif symbol == " ":
-                character = Image.open(relative + "assets\\fonts\\message\\a.png")
+                character = Image.open(relative + "assets\\fonts\\" + font + "\\a.png")
             elif symbol == "'":
-                character = Image.open(relative + "assets\\fonts\\message\\apostraphe.png")
+                character = Image.open(relative + "assets\\fonts\\" + font + "\\apostraphe.png")
+            elif symbol == "+":
+                character = Image.open(relative + "assets\\fonts\\" + font + "\\plus.png")
+            elif symbol == "-":
+                character = Image.open(relative + "assets\\fonts\\" + font + "\\minus.png")
             else:
-                character = Image.open(relative + "assets\\fonts\\message\\" + symbol + ".png")
+                character = Image.open(relative + "assets\\fonts\\" + font + "\\" + symbol + ".png")
             if symbol != " ":
                 layers[layer].paste(character, (xpos, 0, xpos + character.size[0], character.size[1]), character)
             xpos += character.size[0] + 3
@@ -62,11 +67,12 @@ class Popup:
         colourmask = pygame.Surface(self.img.get_size())
         colourmask.fill(self.colour)
         self.img.blit(colourmask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        self.img = toImage(self.img)
-        backplate = Image.new("RGBA", (self.img.size[0] + 10, self.img.size[1] + 10), (117, 117, 117, 255))
-        backplate.paste(Image.new("RGBA", (self.img.size[0] + 6, self.img.size[1] + 6), (194, 194, 194, 255)), (2, 2))
-        backplate.paste(self.img, (5, 5), self.img)
-        self.img = topygame(backplate)
+        if box:
+            self.img = toImage(self.img)
+            backplate = Image.new("RGBA", (self.img.size[0] + 10, self.img.size[1] + 10), (117, 117, 117, 255))
+            backplate.paste(Image.new("RGBA", (self.img.size[0] + 6, self.img.size[1] + 6), (194, 194, 194, 255)), (2, 2))
+            backplate.paste(self.img, (5, 5), self.img)
+            self.img = topygame(backplate)
 
 
 class Popupcontainer:
@@ -75,18 +81,47 @@ class Popupcontainer:
         self.fcounters = []
         self.spacing = spacing
 
-    def newpopup(self, text, colour="990000", alpha=255, frames=180):
-        self.popups.append(Popup(text, colour, alpha))
+    def newpopup(self, text, colour="990000", alpha=255, frames=180, font="message", box=True, preset=None):
+        if preset == "posmoney":
+            box = False
+            font = "moneypopup"
+            colour = "2E8B57"
+            frames = 60
+        elif preset == "negmoney":
+            box = False
+            font = "moneypopup"
+            colour = "B22222"
+            frames = 60
+        elif preset in ["pos", "positive"]:
+            colour = "007acc"
+        self.popups.append(Popup(text, colour, alpha, font, box))
         self.fcounters.append(frames)
 
     def update(self):
         tocut = []
         space = self.spacing
+        moneypopup = False
         for popupindex in range(0, len(self.popups)):
-            window.blit(self.popups[popupindex].img, (500 - self.popups[popupindex].img.get_size()[0] // 2, space))
-            space += self.popups[popupindex].img.get_size()[1] + self.spacing
+            if self.popups[popupindex].font == "moneypopup":
+                if len(menuactive) > 0 or moneypopup:
+                    continue
+                window.blit(self.popups[popupindex].img, (368 - self.popups[popupindex].img.get_size()[0], 211))
+                moneypopup = True
+            else:
+                window.blit(self.popups[popupindex].img, (500 - self.popups[popupindex].img.get_size()[0] // 2, space))
+                space += self.popups[popupindex].img.get_size()[1] + self.spacing
             self.fcounters[popupindex] -= 1
             if self.fcounters[popupindex] < 1:
+                tocut.append(popupindex)
+        tocut.sort(reverse=True)
+        for cutting in tocut:
+            self.fcounters.pop(cutting)
+            self.popups.pop(cutting)
+
+    def binmoney(self):
+        tocut = []
+        for popupindex in range(0, len(self.popups)):
+            if self.popups[popupindex].font == "moneypopup":
                 tocut.append(popupindex)
         tocut.sort(reverse=True)
         for cutting in tocut:
@@ -197,8 +232,6 @@ class Setinfo:
         self.setcomps.append((26, 27, 29))
         self.setcomps.append((31, 32, 34))
         self.setcomps.append((37, 39))
-        self.setcomps.append((12, 38))
-        self.setcomps.append((5, 15, 25, 35))
 
         self.housecosts = [100, 150, 300, 300, 450, 450, 600, 400]
 
@@ -246,6 +279,34 @@ class Setinfo:
             self.propertycosts[35] = 200
             self.propertycosts[37] = 350
             self.propertycosts[39] = 400
+
+        self.propertyrents = []
+        for zzm in range(0, 40):
+            self.propertyrents.append(0)
+
+        for zzm in range(0, 1):
+            self.propertyrents[1] =(2, 10, 30, 90, 160, 250)
+            self.propertyrents[3] = (4, 20, 60, 180, 320, 450)
+            self.propertyrents[6] = (6, 30, 90, 270, 400, 550)
+            self.propertyrents[8] = (6, 30, 90, 270, 400, 550)
+            self.propertyrents[9] = (8, 40, 100, 300, 450, 600)
+            self.propertyrents[11] = (10, 50, 150, 450, 625, 750)
+            self.propertyrents[13] = (10, 50, 150, 450, 625, 750)
+            self.propertyrents[14] = (12, 60, 180, 500, 700, 900)
+            self.propertyrents[16] = (14, 70, 200, 550, 750, 950)
+            self.propertyrents[18] = (14, 70, 200, 550, 750, 950)
+            self.propertyrents[19] = (16, 80, 220, 600, 800, 1000)
+            self.propertyrents[21] = (18, 90, 250, 700, 875, 1050)
+            self.propertyrents[23] = (18, 90, 250, 700, 875, 1050)
+            self.propertyrents[24] = (20, 100, 300, 750, 925, 1100)
+            self.propertyrents[26] = (22, 110, 330, 800, 975, 1150)
+            self.propertyrents[27] = (22, 110, 330, 800, 975, 1150)
+            self.propertyrents[29] = (24, 120, 360, 850, 1025, 1200)
+            self.propertyrents[31] = (26, 130, 390, 900, 1100, 1275)
+            self.propertyrents[32] = (26, 130, 390, 900, 1100, 1275)
+            self.propertyrents[34] = (28, 150, 450, 1000, 1200, 1400)
+            self.propertyrents[37] = (35, 175, 500, 1100, 1300, 1500)
+            self.propertyrents[39] = (50, 200, 600, 1400, 1700, 2000)
 
     def gethousecolour(self, space=-1, setvar=-1):
         if setvar != -1:
@@ -1382,12 +1443,18 @@ def everyitem(listtosearch, item):
     return True
 
 
-def listcompare(list1, list2, allorany="all"):
-    if allorany.lower() == "all":
+def listcompare(list1, list2, mode="all"):
+    if mode.lower() == "all":
         for item in list1:
             if item not in list2:
                 return False
         return True
+    elif mode.lower() == "count":
+        numberin = 0
+        for item in list1:
+            if item in list2:
+                numberin += 1
+        return numberin
     else:
         for item in list1:
             if item in list2:
@@ -1620,25 +1687,64 @@ while running:
                     if gameinfo.currentplayer().jail == 0:
                         gameinfo.currentplayer().jail = False
 
-        if counter % 20 == 0 and destination != -1 and gameinfo.currentplayer().place < destination and not moved:
+        if counter % 20 == 0 and destination != -1 and gameinfo.currentplayer().place != destination and not moved:
             gameinfo.currentplayer().place = (gameinfo.currentplayer().place + 1) % 40
+            if gameinfo.currentplayer().place == 0:
+                gameinfo.currentplayer().money += 200
+                allpopups.newpopup("+200", preset="posmoney")
             gameinfo.updateplayerpos()
 
         if destination == gameinfo.currentplayer().place:
-            if gameinfo.currentplayer().place in gameinfo.cards:
-                boardinterract = 1
+            if destination in [12, 28]:
+                utilitymultiply = dicerollers.trueresults[0] + dicerollers.trueresults[1]
             counter = 0
             destination = -1
             moved = True
-            if dicerollers.trueresults[0] == dicerollers.trueresults[1] and doubles < 3:
+            if dicerollers.trueresults[0] == dicerollers.trueresults[1] and doubles < 3 and gameinfo.currentplayer().place != 10:
                 doubles += 1
                 if doubles == 3:
-                    gameinfo.currentplayer().place = 40
+                    gameinfo.currentplayer().place = 10
                     gameinfo.currentplayer().jail = 3
                     gameinfo.updateplayerpos()
                 else:
                     moved = False
                     dicerollers.reset()
+
+            # player card actions
+
+            if setinfo.propertycosts[gameinfo.currentplayer().place] != 0:
+                if gameinfo.currentplayer().place in gameinfo.cards:
+                    boardinterract = 1
+                else:
+                    for i in gameinfo.players:
+                        if gameinfo.currentplayer().place in i.cards and i != gameinfo.currentplayer():
+                            if gameinfo.currentplayer().place in [5, 15, 25, 35]:
+                                gameinfo.currentplayer().money -= [0, 25, 50, 100, 200][listcompare([5, 15, 25, 35], i.cards, "count")]
+                                i.money += [0, 25, 50, 100, 200][listcompare([5, 15, 25, 35], i.cards, "count")]
+                                allpopups.newpopup("-" + str([0, 25, 50, 100, 200][listcompare([5, 15, 25, 35], i.cards, "count")]), preset="negmoney")
+                            elif gameinfo.currentplayer().place in [12, 28]:
+                                gameinfo.currentplayer().money -= utilitymultiply * [0, 4, 10][listcompare([12, 28], i.cards, "count")]
+                                i.money += utilitymultiply * [0, 4, 10][listcompare([12, 28], i.cards, "count")]
+                                allpopups.newpopup("-" + str(utilitymultiply * [0, 4, 10][listcompare([12, 28], i.cards, "count")]), preset="negmoney")
+                                del utilitymultiply
+                            else:
+                                for x in range(len(setinfo.setcomps)):
+                                    if gameinfo.currentplayer().place in setinfo.setcomps[x]:
+                                        gameinfo.currentplayer().money -= setinfo.propertyrents[gameinfo.currentplayer().place][gameinfo.sets[x]]
+                                        i.money += setinfo.propertyrents[gameinfo.currentplayer().place][gameinfo.sets[x]]
+                                        allpopups.newpopup("-" + str(setinfo.propertyrents[gameinfo.currentplayer().place][gameinfo.sets[x]]), preset="negmoney")
+                                        break
+                            break
+            if gameinfo.currentplayer().place == 30:
+                gameinfo.currentplayer().jail = 3
+                gameinfo.currentplayer().place = 10
+                gameinfo.updateplayerpos()
+            elif gameinfo.currentplayer().place == 4:
+                gameinfo.currentplayer().money -= 200
+                allpopups.newpopup("-200", preset="negmoney")
+            elif gameinfo.currentplayer().place == 38:
+                gameinfo.currentplayer().money -= 100
+                allpopups.newpopup("-100", preset="negmoney")
 
         # end
 
@@ -1648,10 +1754,13 @@ while running:
         gameinfo.displayplayers()
         gameinfo.displayhouses()
 
-    mousedown = [False, False, False, False, False]
+    mousedown = [False, False, False]
     for event in eventlist:
         if event.type == pygame.MOUSEBUTTONDOWN:
-            mousedown[event.button - 1] = True
+            try:
+                mousedown[event.button - 1] = True
+            except IndexError:
+                pass
 
     # sorting out all the menus
 
@@ -1749,10 +1858,12 @@ while running:
                     if selectedcard != blankimage:
                         if gameinfo.currentplayer().cards[cardviewcurrent] not in gameinfo.mortgaged:
                             gameinfo.currentplayer().money += setinfo.propertycosts[gameinfo.currentplayer().cards[cardviewcurrent]] // 2
+                            allpopups.newpopup("+" + str(setinfo.propertycosts[gameinfo.currentplayer().cards[cardviewcurrent]] // 2), preset="posmoney")
                             gameinfo.mortgaged.append(gameinfo.currentplayer().cards[cardviewcurrent])
                         else:
                             if gameinfo.currentplayer().money >= round((setinfo.propertycosts[gameinfo.currentplayer().cards[cardviewcurrent]] // 2) * 1.1):
                                 gameinfo.currentplayer().money -= round((setinfo.propertycosts[gameinfo.currentplayer().cards[cardviewcurrent]] // 2) * 1.1)
+                                allpopups.newpopup("-" + str(round((setinfo.propertycosts[gameinfo.currentplayer().cards[cardviewcurrent]] // 2) * 1.1)), preset="negmoney")
                                 gameinfo.mortgaged.remove(gameinfo.currentplayer().cards[cardviewcurrent])
                             else:
                                 allpopups.newpopup("you're too poor to\nunmortgage this")
@@ -1783,11 +1894,13 @@ while running:
                 elif x.name == "button4" and x.pressed:
                     if gameinfo.currentplayer().money >= setinfo.housecosts[gameinfo.currentplayer().sets[buildsetcurrent]] and len(gameinfo.currentplayer().sets) != 0 and gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] < 5:
                         gameinfo.currentplayer().money -= setinfo.housecosts[gameinfo.currentplayer().sets[buildsetcurrent]]
+                        allpopups.newpopup("-" + str(setinfo.housecosts[gameinfo.currentplayer().sets[buildsetcurrent]]), preset="negmoney")
                         gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] += 1
                     gameinfo.updatehouses()
                 elif x.name == "button5" and x.pressed:
                     if len(gameinfo.currentplayer().sets) != 0 and gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] > 0:
                         gameinfo.currentplayer().money += round(setinfo.housecosts[gameinfo.currentplayer().sets[buildsetcurrent]] * 0.9)
+                        allpopups.newpopup("+" + str(round(setinfo.housecosts[gameinfo.currentplayer().sets[buildsetcurrent]] * 0.9)), "posmoney")
                         gameinfo.sets[gameinfo.currentplayer().sets[buildsetcurrent]] -= 1
                     elif len(gameinfo.currentplayer().sets) == 0:
                         allpopups.newpopup("there's nothing to demolish")
@@ -1879,7 +1992,7 @@ while running:
                         else:
                             i.active = False
                             gameinfo.players[tradepartner].trades.append(Trade(tradebasket, gameinfo.playerturn))
-                            allpopups.newpopup("trade offer sent", "007acc")
+                            allpopups.newpopup("trade offer sent", preset="pos")
 
                     x.pressed = False
 
@@ -1888,7 +2001,7 @@ while running:
                         i.toblit.append([deck[tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][int(x.name[6:-1]) - 1] - tradecards[0][18 * tradepage[0]:18 * (tradepage[0] + 1)][int(x.name[6:-1]) - 1] // 10 - 1], (373, 76)])
                     elif "r" in x.name and int(x.name[6:-1]) + 18 * tradepage[1] <= len(tradecards[1]):
                         i.toblit.append([deck[tradecards[1][18 * tradepage[1]:18 * (tradepage[1] + 1)][int(x.name[6:-1]) - 1] - tradecards[1][18 * tradepage[1]:18 * (tradepage[1] + 1)][int(x.name[6:-1]) - 1] // 10 - 1], (373, 76)])
-        elif i.name == "buyorbid":
+        elif i.name == "buyornot":
             if boardinterract > 60:
                 i.active = True
                 boardinterract = False
@@ -1902,12 +2015,15 @@ while running:
                         if x.name == "button3":
                             if gameinfo.currentplayer().money >= setinfo.propertycosts[gameinfo.currentplayer().place]:
                                 gameinfo.currentplayer().money -= setinfo.propertycosts[gameinfo.currentplayer().place]
+                                allpopups.newpopup("-" + str(setinfo.propertycosts[gameinfo.currentplayer().place]), preset="negmoney")
                                 gameinfo.currentplayer().cards.append(gameinfo.currentplayer().place)
                                 gameinfo.cards.remove(gameinfo.currentplayer().place)
-                                allpopups.newpopup("property purchased", "007acc")
                                 i.active = False
                             else:
-                                allpopups.newpopup("this is too expensive for you to purchase")
+                                allpopups.newpopup("this is too expensive for you to \n purchase")
+                        elif x.name == "button2":
+                            i.active = False
+                            allpopups.newpopup("this is when the bidding menu is \n meant to pop up if you have \n bidding enabled")
                         x.pressed = False
 
         if i.name == "overlay" and i.active:
@@ -1919,7 +2035,6 @@ while running:
                     getobject(menus, "cardview").show()
                     x.pressed = False
                 elif x.name == "button3" and x.pressed:
-                    gameinfo.currentplayer().sets = [0, 1, 2, 3, 4, 6]
                     buildsetcurrent = 0
                     getobject(menus, "build").show()
                     x.pressed = False
@@ -1927,19 +2042,23 @@ while running:
                     getobject(menus, "tradingselector").show()
                     x.pressed = False
                 elif x.name == "button5" and x.pressed:
-                    if not dicerollers.rolled:
+                    if not dicerollers.rolled and not boardinterract:
                         dicerollers.roll()
                     else:
                         allpopups.newpopup("you can't roll right now")
                     x.pressed = False
                 elif x.name == "button6" and x.pressed:
                     x.pressed = False
-                    if moved:
+                    if moved and not boardinterract:
                         doubles = 0
                         gameinfo.playerturn = (gameinfo.playerturn + 1) % len(gameinfo.players)
                         moved = False
                         destination = -1
                         dicerollers.reset()
+                        allpopups.binmoney()
+                        if gameinfo.currentplayer().jail:
+                            allpopups.newpopup(str(gameinfo.currentplayer().jail) + " turns left in jail")
+
                         if gameinfo.currentplayer().name[-1] == "s":
                             getobject(getobject(menus, "overlay").txtboxes, "txtbox1").puttext(gameinfo.currentplayer().name + "'")
                         else:
